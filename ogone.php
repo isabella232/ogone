@@ -35,8 +35,8 @@ class Ogone extends PaymentModule
 	{
 		$this->name = 'ogone';
 		$this->tab = 'payments_gateways';
-		$this->version = '2.9';
-		$this->author = 'PrestaShop';
+		$this->version = '2.10';
+		$this->author = ' Ingenico Payment Services';
 		$this->module_key = '787557338b78e1705f2a4cb72b1dbb84';
 
 		parent::__construct();
@@ -109,7 +109,7 @@ class Ogone extends PaymentModule
 		return $this->_html.'
 		<fieldset><legend><img src="../modules/'.$this->name.'/logo.gif" /> '.$this->l('Help').'</legend>
 			<p>
-				<img src="../modules/'.$this->name.'/ogone.png" alt="ogone logo" style="float: left; margin: 0 5px 5px 0;"/>
+				<img src="../modules/'.$this->name.'/ingenico.png" alt="ogone logo" style="float: left; margin: 0 5px 5px 0;"/>
 				'.$this->l('Ogone Payment Services is a leading European Payment Service Provider with international reach.').'
 				'.sprintf($this->l('More than %1$s35,000 businesses worldwide%2$s trust Ogone to manage and secure their online payments, help prevent fraud and drive their business.'), '<span style="color: #127ac1; font-weight: bold">', '</span>').'
 				'.sprintf($this->l('Ogone is connected through certified links with more than %1$s200 different banks and acquirers%2$s and hence is able to provide over %1$s80 international, alternative and prominent local payment methods%2$s in Europe, Asia, Latin America and the Middle East.'), '<span style="color: #127ac1; font-weight: bold">', '</span>').'
