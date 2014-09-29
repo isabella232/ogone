@@ -53,8 +53,8 @@ $ogoneParams = array();
 $ignoreKeyList = $ogone->getIgnoreKeyList();
 
 foreach ($_GET as $key => $value)
-	if (strtoupper($key) != 'SHASIGN' && $value != '' && !in_array($key, $ignoreKeyList))
-	$ogoneParams[strtoupper($key)] = $value;
+	if (Tools::strtoupper($key) != 'SHASIGN' && $value != '' && !in_array($key, $ignoreKeyList))
+	$ogoneParams[Tools::strtoupper($key)] = $value;
 ksort($ogoneParams);
 
 /* Then, load the customer cart and perform some checks */
@@ -63,8 +63,8 @@ if (Validate::isLoadedObject($cart))
 {	
 	$shasign = '';
 	foreach ($ogoneParams as $key => $value)
-		$shasign .= strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_OUT');
-	$sha1 = strtoupper(sha1($shasign));	
+		$shasign .= Tools::strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_OUT');
+	$sha1 = Tools::strtoupper(sha1($shasign));	
 
 	if ($sha_sign_received && $sha1 == $sha_sign_received)
 	{

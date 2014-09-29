@@ -214,7 +214,7 @@ class Ogone extends PaymentModule
 
 		$ogoneParams['AMOUNT'] = number_format((float)(number_format($params['cart']->getOrderTotal(true, Cart::BOTH), 2, '.', '')), 2, '.', '') * 100;
 		$ogoneParams['CURRENCY'] = $currency->iso_code;
-		$ogoneParams['LANGUAGE'] = $lang->iso_code.'_'.strtoupper($lang->iso_code);
+		$ogoneParams['LANGUAGE'] = $lang->iso_code.'_'.Tools::strtoupper($lang->iso_code);
 		$ogoneParams['CN'] = $customer->lastname;
 		$ogoneParams['EMAIL'] = $customer->email;
 		$ogoneParams['OWNERZIP'] = $address->postcode;
@@ -228,8 +228,8 @@ class Ogone extends PaymentModule
 		ksort($ogoneParams);
 		$shasign = '';
 		foreach ($ogoneParams as $key => $value)
-			$shasign .= strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_IN');
-		$ogoneParams['SHASign'] = strtoupper(sha1($shasign));
+			$shasign .= Tools::strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_IN');
+		$ogoneParams['SHASign'] = Tools::strtoupper(sha1($shasign));
 		
 		$this->context->smarty->assign('ogone_params', $ogoneParams);
 		$this->context->smarty->assign('OGONE_MODE', Configuration::get('OGONE_MODE'));
