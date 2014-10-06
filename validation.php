@@ -38,14 +38,14 @@ if (!Configuration::get('OGONE_SHA_OUT'))
 $neededVars = array('orderID', 'amount', 'currency', 'PM', 'ACCEPTANCE', 'STATUS', 'CARDNO', 'PAYID', 'NCERROR', 'BRAND', 'SHASIGN');
 $params = '<br /><br />'.$ogone->l('Received parameters:').'<br /><br />';
 
-$secure_key = isset($_GET['secure_key']) ? $_GET['secure_key'] : '';
-$sha_sign_received = isset($_GET['SHASIGN']) ? $_GET['SHASIGN'] : '';
+$secure_key = Tools::getIsset('secure_key') ? Tools::getValue('secure_key') : '';
+$sha_sign_received = Tools::getIsset('SHASIGN') ? Tools::getValue('SHASIGN') : '';
 
 foreach ($neededVars as $k)
-	if (!isset($_GET[$k]))
+	if (!Tools::getIsset($k))
 		die($ogone->l('Missing parameter:').' '.$k);
 	else
-		$params .= Tools::safeOutput($k).' : '.Tools::safeOutput($_GET[$k]).'<br />';
+		$params .= Tools::safeOutput($k).' : '.Tools::safeOutput(Tools::getValue($k)).'<br />';
 
 
 /* Fist, check for a valid SHA-1 signature */
