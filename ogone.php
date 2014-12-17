@@ -38,6 +38,7 @@ class Ogone extends PaymentModule
 		$this->version = '2.10';
 		$this->author = ' Ingenico Payment Services';
 		$this->module_key = '787557338b78e1705f2a4cb72b1dbb84';
+		$this->is_eu_compatible = 1;
 
 		parent::__construct();
 
@@ -61,7 +62,9 @@ class Ogone extends PaymentModule
 		return (parent::install() &&
 				$this->registerHook('payment') &&
 				$this->registerHook('orderConfirmation') &&
-				$this->registerHook('backOfficeHeader'));
+				$this->registerHook('backOfficeHeader') &&
+				$this->registerHook('displayPaymentEU')
+		);
 	}
 
 	public function hookBackOfficeHeader()
@@ -236,6 +239,49 @@ class Ogone extends PaymentModule
 		
 		return $this->display(__FILE__, 'ogone.tpl');
     }
+    
+	public function hookDisplayPaymentEU($params) 
+	{
+		$currency = new Currency((int)($params['cart']->id_currency));
+		$lang = new Language((int)($params['cart']->id_lang));
+		$customer = new Customer((int)($params['cart']->id_customer));
+		$address = new Address((int)($params['cart']->id_address_invoice));
+		$country = new Country((int)($address->id_country), (int)($params['cart']->id_lang));
+		
+		$ogoneParams = array();
+		$ogoneParams['PSPID'] = Configuration::get('OGONE_PSPID');
+		$ogoneParams['OPERATION'] = 'SAL';
+		$ogoneParams['ORDERID'] = pSQL($params['cart']->id);
+
+		$ogoneParams['AMOUNT'] = number_format((float)(number_format($params['cart']->getOrderTotal(true, Cart::BOTH), 2, '.', '')), 2, '.', '') * 100;
+		$ogoneParams['CURRENCY'] = $currency->iso_code;
+		$ogoneParams['LANGUAGE'] = $lang->iso_code.'_'.strtoupper($lang->iso_code);
+		$ogoneParams['CN'] = $customer->lastname;
+		$ogoneParams['EMAIL'] = $customer->email;
+		$ogoneParams['OWNERZIP'] = $address->postcode;
+		$ogoneParams['OWNERADDRESS'] = ($address->address1);
+		$ogoneParams['OWNERCTY'] = $country->iso_code;
+		$ogoneParams['OWNERTOWN'] = $address->city;
+		$ogoneParams['PARAMPLUS'] = 'secure_key='.$params['cart']->secure_key;
+		if (!empty($address->phone))
+			$ogoneParams['OWNERTELNO'] = $address->phone;
+
+		ksort($ogoneParams);
+		$shasign = '';
+		foreach ($ogoneParams as $key => $value)
+			$shasign .= strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_IN');
+		$ogoneParams['SHASign'] = strtoupper(sha1($shasign));
+		
+		$this->context->smarty->assign('ogone_params', $ogoneParams);
+		$this->context->smarty->assign('OGONE_MODE', Configuration::get('OGONE_MODE'));
+		
+		$logo = $this->_path ."ogone.gif";
+		return array(
+				'cta_text' => $this->l('Ogone'),
+				'logo' => $logo,
+				'form' => $this->context->smarty->fetch(dirname(__FILE__).'/ogone_eu.tpl')
+			);
+	}
 	
 	public function hookOrderConfirmation($params)
 	{
