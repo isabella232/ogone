@@ -38,6 +38,7 @@ class Ogone extends PaymentModule
 		$this->version = '2.10';
 		$this->author = ' Ingenico Payment Services';
 		$this->module_key = '787557338b78e1705f2a4cb72b1dbb84';
+		$this->is_eu_compatible = 1;
 
 		parent::__construct();
 
@@ -61,7 +62,9 @@ class Ogone extends PaymentModule
 		return (parent::install() &&
 				$this->registerHook('payment') &&
 				$this->registerHook('orderConfirmation') &&
-				$this->registerHook('backOfficeHeader'));
+				$this->registerHook('backOfficeHeader') &&
+				$this->registerHook('displayPaymentEU')
+		);
 	}
 
 	public function hookBackOfficeHeader()
@@ -236,6 +239,18 @@ class Ogone extends PaymentModule
 		
 		return $this->display(__FILE__, 'ogone.tpl');
     }
+    
+	public function hookDisplayPaymentEU($params) 
+	{
+		$this->hookPayment($params);
+		
+		$logo = $this->_path ."ogone.gif";
+		return array(
+				'cta_text' => $this->l('Ogone'),
+				'logo' => $logo,
+				'form' => $this->context->smarty->fetch(dirname(__FILE__).'/ogone_eu.tpl')
+			);
+	}
 	
 	public function hookOrderConfirmation($params)
 	{
