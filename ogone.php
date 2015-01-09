@@ -35,7 +35,7 @@ class Ogone extends PaymentModule
 	{
 		$this->name = 'ogone';
 		$this->tab = 'payments_gateways';
-		$this->version = '2.10';
+		$this->version = '2.10.1';
 		$this->author = ' Ingenico Payment Services';
 		$this->module_key = '787557338b78e1705f2a4cb72b1dbb84';
 		$this->is_eu_compatible = 1;
