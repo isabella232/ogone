@@ -43,7 +43,8 @@ class OgoneConfirmationModuleFrontController extends ModuleFrontController
 				'id_module' => $id_module,
 				'id_cart' => $id_cart,
 				'key' => $key,
-				'ogone_link' => $ogone_link
+				'ogone_link' => $ogone_link,
+				'operation' => Configuration::get('OGONE_OPERATION', ogone::OPERATION_SALE)
 			)
 		);
 

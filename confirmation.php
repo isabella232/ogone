@@ -43,7 +43,8 @@ if (_PS_VERSION_ < '1.5')
 			'id_module' => $id_module,
 			'id_cart' => $id_cart,
 			'key' => $key,
-			'ogone_link' => __PS_BASE_URI__.'order-confirmation.php'
+			'ogone_link' => __PS_BASE_URI__.'order-confirmation.php',
+			'operation' => Configuration::get('OGONE_OPERATION', ogone::OPERATION_SALE)
 		)
 	);
 
@@ -52,6 +53,4 @@ if (_PS_VERSION_ < '1.5')
 	include(dirname(__FILE__).'/../../footer.php');
 }
 else
-{
 	Tools::redirect(__PS_BASE_URI__.'index.php?fc=module&module=ogone&controller=confirmation&'.http_build_query($_GET));
-}

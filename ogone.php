@@ -1,6 +1,6 @@
 <?php
 /*
-* 2007-2011 PrestaShop 
+* 2007-2011 PrestaShop
 *
 * NOTICE OF LICENSE
 *
@@ -23,48 +23,202 @@
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
-	
+
 if (!defined('_PS_VERSION_'))
 	exit;
 
 class Ogone extends PaymentModule
 {
+
+	const AUTHORIZATION_CANCELLED = 'AUTHORIZATION_CANCELLED';
+	const CANCELLED = 'CANCELLED';
+	const PAYMENT_ACCEPTED = 'PAYMENT_ACCEPTED';
+	const PAYMENT_AUTHORIZED = 'PAYMENT_AUTHORIZED';
+	const PAYMENT_CANCELLED = 'PAYMENT_CANCELLED';
+	const PAYMENT_ERROR = 'PAYMENT_ERROR';
+	const PAYMENT_IN_PROGRESS = 'PAYMENT_IN_PROGRESS';
+	const PAYMENT_UNCERTAIN = 'PAYMENT_UNCERTAIN';
+	const REFUND = 'REFUND';
+	const REFUND_ERROR = 'REFUND_ERROR';
+	const REFUND_IN_PROGRESS = 'REFUND_IN_PROGRESS';
+
+	const OPERATION_SALE = 'SAL';
+	const OPERATION_AUTHORISE = 'RES';
+
 	private $_ignoreKeyList = array('secure_key');
+
+	/*
+	 * flag for eu_legal
+	 * @see https://github.com/EU-Legal/
+	 */
+	public $is_eu_compatible = true;
+
+	/**
+	 * List of operations allowed
+	 * @var array
+	 */
+	private $allowed_operations = array(self::OPERATION_SALE, self::OPERATION_AUTHORISE);
+
+	/**
+	 * Return codes
+	 * @var array
+	 */
+	private $return_codes = array(
+		0  => array('Incomplete or invalid', self::PAYMENT_CANCELLED),
+		1  => array('Cancelled by customer', self::PAYMENT_CANCELLED),
+		2  => array('Authorisation declined', self::PAYMENT_ERROR),
+		4  => array('Order stored', self::PAYMENT_IN_PROGRESS),
+		40 => array('Stored waiting external result', self::PAYMENT_IN_PROGRESS),
+		41 => array('Waiting for client payment	', self::PAYMENT_IN_PROGRESS),
+		5  => array('Authorised', self::PAYMENT_AUTHORIZED),
+		50 => array('Authorized waiting external result', self::PAYMENT_IN_PROGRESS),
+		51 => array('Authorisation waiting', self::PAYMENT_IN_PROGRESS),
+		52 => array('Authorisation not known', self::PAYMENT_IN_PROGRESS),
+		55 => array('Standby', self::PAYMENT_IN_PROGRESS),
+		56 => array('OK with scheduled payments', self::PAYMENT_AUTHORIZED),
+		57 => array('Not OK with scheduled payments', self::PAYMENT_ERROR),
+		59 => array('Authoris. to be requested manually', self::PAYMENT_ERROR),
+		6  => array('Authorised and cancelled', self::AUTHORIZATION_CANCELLED),
+		61 => array('Author. deletion waiting', self::AUTHORIZATION_CANCELLED),
+		62 => array('Author. deletion uncertain', self::AUTHORIZATION_CANCELLED),
+		63 => array('Author. deletion refused', self::AUTHORIZATION_CANCELLED),
+		64 => array('Authorised and cancelled', self::AUTHORIZATION_CANCELLED),
+		7  => array('Payment deleted', self::CANCELLED),
+		71 => array('Payment deletion pending', self::CANCELLED),
+		72 => array('Payment deletion uncertain', self::CANCELLED),
+		73 => array('Payment deletion refused', self::CANCELLED),
+		74 => array('Payment deleted', self::CANCELLED),
+		75 => array('Deletion processed by merchant', self::CANCELLED),
+		8  => array('Refund', self::REFUND),
+		81 => array('Refund pending', self::REFUND_IN_PROGRESS),
+		82 => array('Refund uncertain', self::REFUND_IN_PROGRESS),
+		83 => array('Refund refused', self::REFUND_ERROR),
+		84 => array('Payment declined by the acquirer', self::REFUND_ERROR),
+		85 => array('Refund processed by merchant', self::REFUND),
+		9  => array('Payment requested', self::PAYMENT_ACCEPTED),
+		91 => array('Payment processing', self::PAYMENT_IN_PROGRESS),
+		92 => array('Payment uncertain', self::PAYMENT_UNCERTAIN),
+		93 => array('Payment refused', self::PAYMENT_ERROR),
+		94 => array('Refund declined', self::PAYMENT_ERROR),
+		95 => array('Payment processed by merchant', self::PAYMENT_ACCEPTED),
+		96 => array('Refund reversed', self::PAYMENT_ACCEPTED),
+		99 => array('Being processed', self::PAYMENT_IN_PROGRESS)
+	);
+
+	/**
+	 * List of new states to install
+	 * At list names['en'] is mandatory
+	 * @var array
+	 */
+	private $new_statuses = array(
+		self::PAYMENT_IN_PROGRESS => array(
+			'names' => array('en' => 'Ogone payment in progress', 'fr' => 'Ogone paiement en cours'),
+			'properties' => array('color' => 'royalblue', 'logable' => true)
+		),
+		self::PAYMENT_UNCERTAIN => array(
+			'names' => array('en' => 'Ogone payment uncertain', 'fr' => 'Ogone paiement incertain'),
+			'properties' => array('color' => 'orange')
+		),
+		self::PAYMENT_AUTHORIZED => array(
+			'names' => array('en' => 'Ogone payment authorized', 'fr' => 'Ogone paiement autorisé'),
+			'properties' => array('color' => 'royalblue')
+		)
+	);
+
 
 	public function __construct()
 	{
 		$this->name = 'ogone';
 		$this->tab = 'payments_gateways';
-		$this->version = '2.10.1';
-		$this->author = ' Ingenico Payment Services';
+		$this->version = '2.11';
+		$this->author = 'Ingenico Payment Services';
 		$this->module_key = '787557338b78e1705f2a4cb72b1dbb84';
-		$this->is_eu_compatible = 1;
 
 		parent::__construct();
 
-		$this->displayName = 'Ogone';
+		$this->displayName = 'Ingenico Payment Services (Ogone)';
 		$this->description = $this->l('With over 80 different payment methods and 200+ acquirer connections, Ogone helps you manage, collect and secure your online or mobile payments, help prevent fraud and drive your business!');
 
+		/* Backward compatibility */
+		require_once _PS_MODULE_DIR_.'ogone/backward_compatibility/backward.php';
+	}
 
+	public function install()
+	{
 		/* For 1.4.3 and less compatibility */
 		$updateConfig = array('PS_OS_CHEQUE', 'PS_OS_PAYMENT', 'PS_OS_PREPARATION', 'PS_OS_SHIPPING', 'PS_OS_CANCELED', 'PS_OS_REFUND', 'PS_OS_ERROR', 'PS_OS_OUTOFSTOCK', 'PS_OS_BANKWIRE', 'PS_OS_PAYPAL', 'PS_OS_WS_PAYMENT');
 		if (!Configuration::get('PS_OS_PAYMENT'))
 			foreach ($updateConfig as $u)
-				if (!Configuration::get($u) && defined('_'.$u.'_'))
-					Configuration::updateValue($u, constant('_'.$u.'_'));
+			if (!Configuration::get($u) && defined('_'.$u.'_'))
+			Configuration::updateValue($u, constant('_'.$u.'_'));
 
-		/** Backward compatibility */
-		require(_PS_MODULE_DIR_.'ogone/backward_compatibility/backward.php');
-	}
-	
-	public function install()
-	{
 		return (parent::install() &&
+				$this->addStatuses() &&
+				Configuration::updateValue('OGONE_OPERATION', self::OPERATION_SALE) &&
+		    	Configuration::get('OGONE_OPERATION') === self::OPERATION_SALE &&
 				$this->registerHook('payment') &&
 				$this->registerHook('orderConfirmation') &&
 				$this->registerHook('backOfficeHeader') &&
-				$this->registerHook('displayPaymentEU')
-		);
+				(!is_callable(array('Hook', 'getIdByName')) || (!Hook::getIdByName('displayPaymentEU') || $this->registerHook('displayPaymentEU'))));
+	}
+
+	/**
+	 * Adds itermediary statuses. Needs to be public, because it's called by upgrade_module_2_11
+	 * @return boolean
+	 */
+	public function addStatuses(){
+		$result = true;
+		foreach ($this->new_statuses as $code => $status)
+			if (!$this->addStatus($code, $status['names'], isset($status['properties']) ? $status['properties'] : array()))
+				$result = false;
+
+		if (version_compare(_PS_VERSION, '1.5', 'ge') && is_callable('Cache', 'delete'))
+			Cache::delete('OrderState::getOrderStates*');
+
+		Configuration::updateValue(self::PAYMENT_ACCEPTED, Configuration::get('PS_OS_PAYMENT'), false, false);
+		Configuration::updateValue(self::PAYMENT_ERROR, Configuration::get('PS_OS_ERROR'), false, false);
+
+		return $result;
+	}
+
+	/**
+	 * Adds new order state on install
+	 * @param string $code
+	 * @param array $names
+	 * @param array $properties
+	 * @return boolean
+	 */
+	protected function addStatus($code, array $names = array(), array $properties = array()){
+
+		$order_state = new OrderState();
+
+		foreach (Language::getLanguages() as $language)
+		{
+			$iso_code = Tools::strtolower($language['iso_code']);
+			$order_state->name[(int)$language['id_lang']] = isset($names[$iso_code]) ?  $names[$iso_code] : $names['en'];
+		}
+
+		foreach ($properties as $property => $value)
+			$order_state->{$property} = $value;
+
+		$order_state->module_name = $this->name;
+
+		$result = $order_state->add() && Validate::isLoadedObject($order_state);
+
+		if ($result)
+		{
+			Configuration::updateValue($code, $order_state->id, false, false);
+			$source = dirname(__FILE__).DIRECTORY_SEPARATOR.'logo.gif';
+			$targets = array(
+				 _PS_IMG_DIR_.DIRECTORY_SEPARATOR.'os'.DIRECTORY_SEPARATOR.sprintf('%d.gif', $order_state->id),
+				 _PS_TMP_IMG_DIR_.DIRECTORY_SEPARATOR.sprintf('order_state_mini_%d.gif', $order_state->id),
+				version_compare(_PS_VERSION_, '1.5', 'ge') ? _PS_TMP_IMG_DIR_.DIRECTORY_SEPARATOR.sprintf('order_state_mini_%d_%d.gif', $order_state->id, Context::getContext()->shop->id) : null,
+			);
+			foreach (array_filter($targets) as $target)
+				copy($source, $target);
+		}
+
+		return $result;
 	}
 
 	public function hookBackOfficeHeader()
@@ -88,27 +242,28 @@ class Ogone extends PaymentModule
 	{
 		if (!isset($this->_html) || empty($this->_html))
 			$this->_html = '';
-		
+
 		if (Tools::isSubmit('submitOgone'))
 		{
 			Configuration::updateValue('OGONE_PSPID', Tools::getValue('OGONE_PSPID'));
 			Configuration::updateValue('OGONE_SHA_IN', Tools::getValue('OGONE_SHA_IN'));
 			Configuration::updateValue('OGONE_SHA_OUT', Tools::getValue('OGONE_SHA_OUT'));
 			Configuration::updateValue('OGONE_MODE', (int)Tools::getValue('OGONE_MODE'));
+			Configuration::updateValue('OGONE_OPERATION', in_array(Tools::getValue('OGONE_OPERATION'), $this->allowed_operations) ? Tools::getValue('OGONE_OPERATION') : self::OPERATION_SALE);
 			$dataSync = (($pspid = Configuration::get('OGONE_PSPID'))
 				? '<img src="http://api.prestashop.com/modules/ogone.png?pspid='.urlencode($pspid).'&mode='.(int)Tools::getValue('OGONE_MODE').'" style="float:right" />'
 				: ''
 			);
 			$this->_html .= '<div class="conf">'.$this->l('Configuration updated').$dataSync.'</div>';
 		}
-		
+
 		if ($this->context->language->iso_code == 'fr')
 			$account_creation_link = 'https://secure.ogone.com/ncol/test/new_account.asp?BRANDING=ogone&ISP=OFR&SubID=3&SOLPRO=&MODE=STD&ACountry=FR&Lang=2';
 		elseif ($this->context->language->iso_code == 'de')
 			$account_creation_link = 'https://secure.ogone.com/ncol/test/new_account.asp?BRANDING=ogone&ISP=ODE&SubID=5&SOLPRO=&MODE=STD&ACountry=DE&Lang=5';
-		else 
+		else
 			$account_creation_link = 'https://secure.ogone.com/ncol/test/new_account.asp?BRANDING=ogone&ISP=OFR&SubID=3&SOLPRO=&MODE=STD&ACountry=FR&Lang=1';
-		
+
 		return $this->_html.'
 		<fieldset><legend><img src="../modules/'.$this->name.'/logo.gif" /> '.$this->l('Help').'</legend>
 			<p>
@@ -119,25 +274,25 @@ class Ogone extends PaymentModule
 				<div class="clear">&nbsp;</div>
 			</p>
 			<p style="color: #127ac1; font-weight: bold; font-size: 1.2em; margin: 20px 0">'.sprintf($this->l('To activate your account, you need a %1$sMID (Merchant Identification) contract%2$s with an acquiring bank.'), '<span style="text-decoration: underline;">', '</span>').'</p>
-			
+
 			<p style="margin-top: 15px">1. <span style="color: #127ac1;">'.$this->l('Create your free test account by clicking on the link below:').'</span></p>
 			<p style="float: right; padding: 5px;"><a style="color: white; background: #127ac1; padding: 10px; border-radius: 10px; font-size: 15px; font-weight: bold;" href="'.$account_creation_link.'">'.$this->l('Create your free Test Account!').'</a></p>
 			<p>
 				'.sprintf($this->l('This test account will allow you to create your %1$sPSPID (Ogone Identification)%2$s, to request administrative information, to activate the desired payment methods and to install the %1$sSHA-in and SHA-out signatures%2$s which you are sought for the configuration of your PrestaShop account below.'), '<b>', '</b>').'
 				'.$this->l('You can also perform test payments.').'
 			</p>
-			
+
 			<p style="margin-top: 15px">2. <span style="color: #127ac1;">'.$this->l('Transfer your Ogone test account into production:').'</span></p>
 			<p>
 				'.$this->l('This second part will allow you to complete your billing information, insert the UID number your acquirer has communicated to you and obtain your Ogone contract.').'
 			</p>
-			
+
 			<p style="margin-top: 15px">3. <span style="color: #127ac1;">'.$this->l('Activate your account on Prestashop!').'</span></p>
 			<p>
 				'.$this->l('Simply insert the following information below: your PSPID as well as the SHA-in and SHA-out signatures set on your Ogone account.').'
 			</p>
 			<p style="margin-top: 15px; color: #127ac1;">'.$this->l('For all commercial, technical or administrative question, please do not hesitate to contact us on 0203 147 4966.').'</p>
-			
+
 			<div class="clear">&nbsp;</div>
 		</fieldset>
 		<div class="clear">&nbsp;</div>
@@ -170,6 +325,17 @@ class Ogone extends PaymentModule
 						<label for="production" style="color:#080;display:block;float:left;text-align:left;width:85px;">'.$this->l('Production').'</label></span>
 					</div>
 					<div class="clear">&nbsp;</div>
+					<label>'.$this->l('Operation').'</label>
+					<div class="margin-form">
+						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="sal" name="OGONE_OPERATION" value="'.self::OPERATION_SALE.'" style="vertical-align:middle;display:block;float:left;margin-top:2px;margin-right:3px;"
+							'.(Tools::getValue('OGONE_OPERATION', Configuration::get('OGONE_OPERATION')) !== self::OPERATION_AUTHORISE ? 'checked="checked"' : '').' />
+						<label for="test" style="display:block;float:left;text-align:left;width:60px;">'.$this->l('Capture').'</label>&nbsp;</span>
+						<span style="display:block;float:left;margin-top:3px;">
+						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="res" name="OGONE_OPERATION" value="'.self::OPERATION_AUTHORISE.'" style="vertical-align:middle;display:block;float:left;margin-top:2px;margin-right:3px;"
+							'.(Tools::getValue('OGONE_OPERATION', Configuration::get('OGONE_OPERATION')) === self::OPERATION_AUTHORISE ? 'checked="checked"' : '').' />
+						<label for="test" style="display:block;float:left;text-align:left;width:60px;">'.$this->l('Authorisation only').'</label>&nbsp;</span>
+					</div>
+					<div class="clear">&nbsp;</div>
 					<input type="submit" name="submitOgone" value="'.$this->l('Update settings').'" class="button" />
 				</div>
 				<div style="float: left; width: 48%; margin: 1%;">
@@ -196,23 +362,28 @@ class Ogone extends PaymentModule
 			});
 		</script>';
 	}
-	
+
 	public function getIgnoreKeyList()
 	{
 		return $this->_ignoreKeyList;
 	}
-	
-	public function hookPayment($params)
+
+	/**
+	 * Assifns all vars to smarty
+	 * @param unknown_type $params
+	 */
+	protected function assignOgonePaymentVars($params)
 	{
+
 		$currency = new Currency((int)($params['cart']->id_currency));
 		$lang = new Language((int)($params['cart']->id_lang));
 		$customer = new Customer((int)($params['cart']->id_customer));
 		$address = new Address((int)($params['cart']->id_address_invoice));
 		$country = new Country((int)($address->id_country), (int)($params['cart']->id_lang));
-		
+
 		$ogoneParams = array();
 		$ogoneParams['PSPID'] = Configuration::get('OGONE_PSPID');
-		$ogoneParams['OPERATION'] = 'SAL';
+		$ogoneParams['OPERATION'] = (Configuration::get('OGONE_OPERATION') === self::OPERATION_AUTHORISE ? self::OPERATION_AUTHORISE : self::OPERATION_SALE);
 		$ogoneParams['ORDERID'] = pSQL($params['cart']->id);
 
 		$ogoneParams['AMOUNT'] = number_format((float)(number_format($params['cart']->getOrderTotal(true, Cart::BOTH), 2, '.', '')), 2, '.', '') * 100;
@@ -233,42 +404,104 @@ class Ogone extends PaymentModule
 		foreach ($ogoneParams as $key => $value)
 			$shasign .= Tools::strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_IN');
 		$ogoneParams['SHASign'] = Tools::strtoupper(sha1($shasign));
-		
+
 		$this->context->smarty->assign('ogone_params', $ogoneParams);
 		$this->context->smarty->assign('OGONE_MODE', Configuration::get('OGONE_MODE'));
-		
+
+	}
+
+	/**
+	 * hookPayment replacement for compatibility with module eu_legal
+	 * @param array $params
+	 * @return string Generated html
+	 */
+	public function hookDisplayPaymentEU($params)
+	{
+		$this->assignOgonePaymentVars($params);
+		return array(
+			'cta_text' => $this->l('Ogone'),
+			'logo' => $this->_path.'ogone.gif',
+			'form' => $this->context->smarty->fetch(dirname(__FILE__).'/ogone_eu.tpl')
+		);
+	}
+
+	public function hookPayment($params)
+	{
+
+		$this->assignOgonePaymentVars($params);
 		return $this->display(__FILE__, 'ogone.tpl');
     }
-    
-	public function hookDisplayPaymentEU($params) 
-	{
-		$this->hookPayment($params);
-		
-		$logo = $this->_path ."ogone.gif";
-		return array(
-				'cta_text' => $this->l('Ogone'),
-				'logo' => $logo,
-				'form' => $this->context->smarty->fetch(dirname(__FILE__).'/ogone_eu.tpl')
-			);
-	}
-	
+
 	public function hookOrderConfirmation($params)
 	{
 		if ($params['objOrder']->module != $this->name)
 			return;
-		
+
 		if ($params['objOrder']->valid)
 			$this->context->smarty->assign(array('status' => 'ok', 'id_order' => $params['objOrder']->id));
 		else
 			$this->context->smarty->assign('status', 'failed');
 
+		$this->context->smarty->assign('operation', Configuration::get('OGONE_OPERATION', self::OPERATION_SALE));
+
 		$link = method_exists('Link', 'getPageLink') ? $this->context->link->getPageLink('contact', true) : Tools::getHttpHost(true).'contact';
 		$this->context->smarty->assign('ogone_link', $link);
 		return $this->display(__FILE__, 'hookorderconfirmation.tpl');
 	}
-	
+
 	public function validate($id_cart, $id_order_state, $amount, $message = '', $secure_key)
 	{
-		$this->validateOrder((int)$id_cart, $id_order_state, $amount, $this->displayName, $message, NULL, NULL, true, pSQL($secure_key));		
+		$this->validateOrder((int)$id_cart, $id_order_state, $amount, $this->displayName, $message, null, null, true, pSQL($secure_key));
 	}
+
+	/**
+	 * Gets translated description of Ogone payment status, based on code. Defaults to "Unknown code: xxx"
+	 * @param int $code
+	 * @return string  Translated Ogone payment status description
+	 */
+	public function getCodeDescription($code){
+		return isset($this->return_codes[(int)$code]) ? $this->l($this->return_codes[(int)$code][0]) : sprintf('%s %s', $this->l('Unknown code'), $code);
+	}
+
+	/**
+	 * Gets name of Ogone payment status, based on code. Defaults to self::PAYMENT_ERROR
+	 * @param int $code See Ogone::$return_codes
+	 * @return string Ogone payment status
+	 */
+	public function getCodePaymentStatus($code)
+	{
+		return isset($this->return_codes[(int)$code]) ? $this->return_codes[(int)$code][1] : self::PAYMENT_ERROR;
+	}
+
+	/**
+	 * Gets id of Prestashop order status corresponding to Ogone status. Defaults to PS_OS_ERROR
+	 * @param string $ogone_status name of Ogone return state
+	 * @return int
+	 */
+	public function getPaymentStatusId($ogone_status){
+		$status_id = (int)Configuration::get((string)$ogone_status);
+		return ($status_id ? $status_id : (int)Configuration::get('PS_OS_ERROR'));
+	}
+
+	/**
+	 * Adds message to order
+	 * @param int $id_order
+	 * @param string $message
+	 * @return boolean
+	 */
+	public function addMessage($id_order, $message)
+	{
+		if (!is_int($id_order) || $id_order <= 0)
+			return false;
+		if (!Validate::isCleanHtml($message))
+			return false;
+
+		$message_obj = new Message();
+		$message_obj->id_order = $id_order;
+		$message_obj->message = $message;
+		$message_obj->private = true;
+
+		return $message_obj->add();
+	}
+
 }

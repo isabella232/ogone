@@ -1,6 +1,6 @@
 <?php
 /*
-* 2007-2011 PrestaShop 
+* 2007-2011 PrestaShop
 *
 * NOTICE OF LICENSE
 *
@@ -26,6 +26,9 @@
 
 include(dirname(__FILE__).'/../../config/config.inc.php');
 
+/**
+ * @var ogone
+ */
 $ogone = Module::getInstanceByName('ogone');
 
 if (!$ogone->active)
@@ -47,7 +50,6 @@ foreach ($neededVars as $k)
 	else
 		$params .= Tools::safeOutput($k).' : '.Tools::safeOutput(Tools::getValue($k)).'<br />';
 
-
 /* Fist, check for a valid SHA-1 signature */
 $ogoneParams = array();
 $ignoreKeyList = $ogone->getIgnoreKeyList();
@@ -57,55 +59,51 @@ foreach ($_GET as $key => $value)
 	$ogoneParams[Tools::strtoupper($key)] = $value;
 ksort($ogoneParams);
 
+$id_cart = (int)$ogoneParams['ORDERID'];
+
 /* Then, load the customer cart and perform some checks */
-$cart = new Cart((int)($ogoneParams['ORDERID']));
+$cart = new Cart($id_cart);
 if (Validate::isLoadedObject($cart))
-{	
+{
 	$shasign = '';
 	foreach ($ogoneParams as $key => $value)
 		$shasign .= Tools::strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_OUT');
-	$sha1 = Tools::strtoupper(sha1($shasign));	
+	$sha1 = Tools::strtoupper(sha1($shasign));
 
 	if ($sha_sign_received && $sha1 == $sha_sign_received)
 	{
-		switch ($ogoneParams['STATUS'])
+
+		$ogone_return_code = (int)$ogoneParams['STATUS'];
+		$existing_id_order = (int)Order::getOrderByCartId($id_cart);
+
+		$ogone_state = $ogone->getCodePaymentStatus($ogone_return_code);
+		$ogone_state_description = $ogone->getCodeDescription($ogone_return_code);
+		$payment_state_id = $ogone->getPaymentStatusId($ogone_state);
+
+		$amount_paid = ($ogone_state !== ogone::PAYMENT_ACCEPTED ? 0 : (float)$ogoneParams['AMOUNT']);
+		
+		if ($existing_id_order)
 		{
-			case 1:
-				/* Real error or payment canceled */
-				$ogone->validate((int)$ogoneParams['ORDERID'], Configuration::get('PS_OS_ERROR'), 0, Tools::safeOutput($ogoneParams['NCERROR']).$params, Tools::safeOutput($secure_key));
-				break;
-			case 2:
-				/* Real error - authorization refused */
-				$ogone->validate((int)$ogoneParams['ORDERID'], Configuration::get('PS_OS_ERROR'), 0, $ogone->l('Error (auth. refused)').'<br />'.Tools::safeOutput($ogoneParams['NCERROR']).$params, Tools::safeOutput($secure_key));
-				break;
-			case 5:
-			case 9:
-				/* Payment OK */
-				$ogone->validate((int)$ogoneParams['ORDERID'], Configuration::get('PS_OS_PAYMENT'), (float)$ogoneParams['AMOUNT'], $ogone->l('Payment authorized / OK').$params, Tools::safeOutput($secure_key));
-				Configuration::updateValue('OGONE_CONFIGURATION_OK', true);
-				break;
-			case 6:
-			case 7:
-			case 8:
-				// Payment canceled later
-				if ($id_order = (int)Order::getOrderByCartId((int)$ogoneParams['ORDERID']))
-				{
-					// Update the amount really paid
-					$order = new Order((int)$id_order);
-					$order->total_paid_real = 0;
-					$order->update();
-					
-					// Send a new message and change the state
-					$history = new OrderHistory();
-					$history->id_order = (int)$id_order;
-					$history->changeIdOrderState(Configuration::get('PS_OS_ERROR'), (int)$id_order);
-					$history->addWithemail(true, array());
-				}
-				break;
-			default:
-				$ogone->validate((int)$ogoneParams['ORDERID'], Configuration::get('PS_OS_ERROR'), (float)($ogoneParams['AMOUNT']), $ogone->l('Unknown status:').' '.Tools::safeOutput($ogoneParams['STATUS']).$params, Tools::safeOutput($secure_key));
-		}
-		exit;
+			$order = new Order($existing_id_order);
+			
+			/* Update the amount really paid */
+			if ($order->total_paid_real !== $amount_paid)
+			{
+				$order->total_paid_real = $amount_paid;
+				$order->update();
+			}
+						
+			/* Send a new message and change the state */
+			$history = new OrderHistory();
+			$history->id_order = (int)$existing_id_order;
+			$history->changeIdOrderState($payment_state_id, (int)$existing_id_order);
+			$history->addWithemail(true, array());
+			
+			/* Add message */
+			$ogone->addMessage($existing_id_order, sprintf('%s: %d %s %s %f', $ogone->l('Ogone update'), $ogone_return_code, $ogone_state, $ogone_state_description, $amount_paid));
+			
+		} else
+			$ogone->validate((int)$ogoneParams['ORDERID'], $payment_state_id, $amount_paid, sprintf('%s %s %s', $ogone_state_description, Tools::safeOutput($ogone_state), $params), Tools::safeOutput($secure_key));
 	}
 	else
 	{

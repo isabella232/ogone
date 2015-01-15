@@ -22,7 +22,7 @@
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
-
+{if $operation=="SAL"}
 <p><img src="{$content_dir}img/loader.gif" /> {l s='Please wait while your order is being processed...' mod='ogone'}</p>
 <script type="text/javascript">
 function checkwaitingorder()
@@ -41,3 +41,15 @@ function checkwaitingorder()
 {rdelim}	
 setTimeout('checkwaitingorder()', 5000);
 </script>
+{else}
+	<script type="text/javascript">
+	function redirect()
+	{ldelim}
+		window.location.href = '{$ogone_link}?id_cart={$id_cart|intval}&id_module={$id_module|intval}&key={$key|escape}';
+	{rdelim};
+	setTimeout('redirect()', 10000);
+	</script>
+	<p>{l s='Your order will be validated soon.' mod='ogone'}
+	<br /><a href="{$ogone_link}"> {l s='Go to orders view.' mod='ogone'}</a>
+	</p>
+{/if}
