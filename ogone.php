@@ -172,7 +172,7 @@ class Ogone extends PaymentModule
 			if (!$this->addStatus($code, $status['names'], isset($status['properties']) ? $status['properties'] : array()))
 				$result = false;
 
-		if (version_compare(_PS_VERSION, '1.5', 'ge') && is_callable('Cache', 'delete'))
+		if (version_compare(_PS_VERSION_, '1.5', 'ge') && is_callable('Cache', 'delete'))
 			Cache::delete('OrderState::getOrderStates*');
 
 		Configuration::updateValue(self::PAYMENT_ACCEPTED, Configuration::get('PS_OS_PAYMENT'), false, false);
