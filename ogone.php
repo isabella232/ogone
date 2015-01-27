@@ -30,17 +30,17 @@ if (!defined('_PS_VERSION_'))
 class Ogone extends PaymentModule
 {
 
-	const AUTHORIZATION_CANCELLED = 'AUTHORIZATION_CANCELLED';
-	const CANCELLED = 'CANCELLED';
-	const PAYMENT_ACCEPTED = 'PAYMENT_ACCEPTED';
-	const PAYMENT_AUTHORIZED = 'PAYMENT_AUTHORIZED';
-	const PAYMENT_CANCELLED = 'PAYMENT_CANCELLED';
-	const PAYMENT_ERROR = 'PAYMENT_ERROR';
-	const PAYMENT_IN_PROGRESS = 'PAYMENT_IN_PROGRESS';
-	const PAYMENT_UNCERTAIN = 'PAYMENT_UNCERTAIN';
-	const REFUND = 'REFUND';
-	const REFUND_ERROR = 'REFUND_ERROR';
-	const REFUND_IN_PROGRESS = 'REFUND_IN_PROGRESS';
+	const AUTHORIZATION_CANCELLED = 'OGONE_AUTHORIZATION_CANCELLED';
+	const CANCELLED = 'OGONE_CANCELLED';
+	const PAYMENT_ACCEPTED = 'OGONE_PAYMENT_ACCEPTED';
+	const PAYMENT_AUTHORIZED = 'OGONE_PAYMENT_AUTHORIZED';
+	const PAYMENT_CANCELLED = 'OGONE_PAYMENT_CANCELLED';
+	const PAYMENT_ERROR = 'OGONE_PAYMENT_ERROR';
+	const PAYMENT_IN_PROGRESS = 'OGONE_PAYMENT_IN_PROGRESS';
+	const PAYMENT_UNCERTAIN = 'OGONE_PAYMENT_UNCERTAIN';
+	const REFUND = 'OGONE_REFUND';
+	const REFUND_ERROR = 'OGONE_REFUND_ERROR';
+	const REFUND_IN_PROGRESS = 'OGONE_REFUND_IN_PROGRESS';
 
 	const OPERATION_SALE = 'SAL';
 	const OPERATION_AUTHORISE = 'RES';
@@ -172,7 +172,7 @@ class Ogone extends PaymentModule
 			if (!$this->addStatus($code, $status['names'], isset($status['properties']) ? $status['properties'] : array()))
 				$result = false;
 
-		if (version_compare(_PS_VERSION, '1.5', 'ge') && is_callable('Cache', 'delete'))
+		if (version_compare(_PS_VERSION_, '1.5', 'ge') && is_callable('Cache', 'delete'))
 			Cache::delete('OrderState::getOrderStates*');
 
 		Configuration::updateValue(self::PAYMENT_ACCEPTED, Configuration::get('PS_OS_PAYMENT'), false, false);
