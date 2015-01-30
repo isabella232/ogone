@@ -130,7 +130,7 @@ class Ogone extends PaymentModule
 	{
 		$this->name = 'ogone';
 		$this->tab = 'payments_gateways';
-		$this->version = '2.11';
+		$this->version = '2.12';
 		$this->author = 'Ingenico Payment Services';
 		$this->module_key = '787557338b78e1705f2a4cb72b1dbb84';
 
@@ -172,8 +172,8 @@ class Ogone extends PaymentModule
 			if (!$this->addStatus($code, $status['names'], isset($status['properties']) ? $status['properties'] : array()))
 				$result = false;
 
-		if (version_compare(_PS_VERSION_, '1.5', 'ge') && is_callable('Cache', 'delete'))
-			Cache::delete('OrderState::getOrderStates*');
+		if (version_compare(_PS_VERSION_, '1.5', 'ge') && is_callable('Cache', 'clean'))
+			Cache::clean('OrderState::getOrderStates*');
 
 		Configuration::updateValue(self::PAYMENT_ACCEPTED, Configuration::get('PS_OS_PAYMENT'), false, false);
 		Configuration::updateValue(self::PAYMENT_ERROR, Configuration::get('PS_OS_ERROR'), false, false);
