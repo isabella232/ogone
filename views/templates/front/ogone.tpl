@@ -23,21 +23,14 @@
 *  International Registered Trademark & Property of PrestaShop SA
 *}
 
-<p><img src="{$content_dir}img/loader.gif" />{if $operation=="SAL"}{l s='Please wait while your order is being processed...' mod='ogone'}{else}{l s='Your order will be validated soon.' mod='ogone'}{/if}</p>
-<script type="text/javascript">
-function checkwaitingorder()
-{ldelim}
-	$.ajax({ldelim}
-		type:"POST",
-		async:true,
-		url:'{$content_dir|escape:'htmlall':'UTF-8'}modules/ogone/checkwaitingorder.php',
-		data:'id_cart={$id_cart|intval}&id_module={$id_module|intval}&key={$key|escape:'htmlall':'UTF-8'}',
-		success:function (r) {ldelim}
-			if (r == 'ok')
-				window.location.href = '{if $operation=="SAL"}{$ogone_link|escape:'htmlall':'UTF-8'}?id_cart={$id_cart|intval}&id_module={$id_module|intval}&key={$key|escape:'htmlall':'UTF-8'}{else}{$ogone_link|escape:'htmlall':'UTF-8'}?id_cart={$id_cart|intval}{/if}';
-		{rdelim}
-	{rdelim});
-	setTimeout('checkwaitingorder()', 5000);
-{rdelim}
-setTimeout('checkwaitingorder()', 5000);
-</script>
+<p class="payment_module">
+	<a onclick="document.forms['ogone_form'].submit();" href="#" title="{l s='Pay with Ingenico' mod='ogone'}">
+		<span style="float:left;"><img src="{$module_dir|escape:'htmlall':'UTF-8'}views/img/ogone.gif" alt="{l s='Ogone logo' mod='ogone'}" style="padding-right: 2px;"/></span>
+		{l s='Pay with Ingenico' mod='ogone'}<br /><span>{l s='Pay safely on the next page with Ingenico using your preferred payment method' mod='ogone'}</span>
+	</a>
+</p>
+<form name="ogone_form" action="https://secure.ogone.com/ncol/{if $OGONE_MODE}prod{else}test{/if}/orderstandard_utf8.asp" method="post">
+{foreach from=$ogone_params key=ogone_key item=ogone_value}
+	<input type="hidden" name="{$ogone_key|escape:'htmlall':'UTF-8'}" value="{$ogone_value|escape:'htmlall':'UTF-8'}" />
+{/foreach}
+</form>
