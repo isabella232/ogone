@@ -176,7 +176,7 @@ class Ogone extends PaymentModule
 	{
 		$result = true;
 
-				$statuses = $this->getExistingStatuses();
+		$statuses = $this->getExistingStatuses();
 		foreach ($this->new_statuses as $code => $status)
 		{
 				if (isset($statuses[$status['names']['en']]))
@@ -280,25 +280,27 @@ class Ogone extends PaymentModule
 				(int)Tools::getValue('OGONE_MODE').'" style="float:right" />'
 				: ''
 			);
-			$this->_html .= '<div class="conf">'.$this->l('Configuration updated').$data_sync.'</div>';
+
+			$this->_html .= (version_compare(_PS_VERSION_, '1.6', 'ge') ? '<div class="conf bootstrap"><div class="conf alert alert-success">'.$this->l('Configuration updated').$data_sync.'</div></div>' : '<div class="conf">'.$this->l('Configuration updated').$data_sync.'</div>');
 		}
 
-		$this->_html .= '<div data-acc-tgt="ogone_info" class="ogone_acc ogone_info" style="background-image: url('._MODULE_DIR_.$this->name;
+		$hide_info_tabs = (bool)Configuration::get('OGONE_PSPID');
+
+		$this->_html .= '<div data-acc-tgt="ogone_info" class="ogone_acc ogone_info '.($hide_info_tabs ? 'ogone_hide' : '').'" style="background-image: url('._MODULE_DIR_.$this->name;
 		$this->_html .= '/views/img/desc_ogone.png);background-repeat:no-repeat;background-position:8px center;">'.$this->l('Description').'</div>';
 		$this->_html .= $this->getTranslatedAdminTemplate('info');
 		$this->_html .= '';
 
-		$this->_html .= '<div data-acc-tgt="ogone_prices" class="ogone_acc ogone_prices" style="background-image: url('._MODULE_DIR_.$this->name;
+		$this->_html .= '<div data-acc-tgt="ogone_prices" class="ogone_acc ogone_prices '.($hide_info_tabs ? 'ogone_hide' : '').'" style="background-image: url('._MODULE_DIR_.$this->name;
 		$this->_html .= '/views/img/gift_ogone.png);background-repeat:no-repeat;background-position:8px center;">'.$this->l('Rates').'</div>';
 		$this->_html .= $this->getTranslatedAdminTemplate('prices');
 		$this->_html .= '</fieldset>';
 
 		$this->_html .= '<form action="'.Tools::htmlentitiesUTF8($_SERVER['REQUEST_URI']).'" method="post">
-			<div data-acc-tgt="ogone_config"   class="ogone_acc ogone_config" style="background-image: url('._MODULE_DIR_.$this->name;
+			<div data-acc-tgt="ogone_config"  class="ogone_acc ogone_config" style="background-image: url('._MODULE_DIR_.$this->name;
 		$this->_html .= '/views/img/conf_ogone.png);background-repeat:no-repeat;background-position:8px center;">'.$this->l('Configuration').'</div>
 				<div class="ogone ogone_acc_container">
-
-				<div id="ogone_config"    class="ogone_acc_tgt" >
+				<div id="ogone_config" class="ogone_acc_tgt">
 				<div class="float half">
 					<label for="pspid">'.$this->l('PSPID').'</label>
 					<div class="margin-form">
@@ -364,7 +366,14 @@ class Ogone extends PaymentModule
 					$(".ogone_acc_tgt").not(tgt_id).hide().removeClass("active");
 					$(tgt_id).toggle().addClass("active");
 				});
-				$(".ogone_acc_tgt").hide().removeClass("active");
+
+				$(".ogone_acc").each(function(){
+					if ($(this).hasClass("ogone_hide")){
+					var tgt_id = "#"+ $(this).data("acc-tgt");
+					$(tgt_id).hide().removeClass("active");
+					}
+				});
+
 			});
 		</script>';
 
