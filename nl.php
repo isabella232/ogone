@@ -1,0 +1,43 @@
+<?php
+
+global $_MODULE;
+$_MODULE = array();
+
+$_MODULE['<{ogone}prestashop>hookorderconfirmation_0db71da7150c27142eef9d22b843b4a9'] = 'Voor vragen of nadere informatie kunt u contact opnemen met onze';
+$_MODULE['<{ogone}prestashop>hookorderconfirmation_2e2117b7c81aa9ea6931641ea2c6499f'] = 'Uw order op';
+$_MODULE['<{ogone}prestashop>hookorderconfirmation_30163d8fc3068e8297e7ab5bf32aec87'] = 'Uw order wordt zo spoedig mogelijk verzonden.';
+$_MODULE['<{ogone}prestashop>hookorderconfirmation_64430ad2835be8ad60c59e7d44e4b0b1'] = 'klantenservice';
+$_MODULE['<{ogone}prestashop>hookorderconfirmation_75fbf512d744977d62599cc3f0ae2bb4'] = 'is compleet.';
+$_MODULE['<{ogone}prestashop>hookorderconfirmation_8de637e24570c1edb0357826a2ad5aea'] = 'We hebben gemerkt dat er een probleem is met uw order.  Als u denkt dat dit een vergissing is kunt u contact opnemen met onze';
+$_MODULE['<{ogone}prestashop>ogone16_6419c7668f1d1a415063ebf1c55fd5d5'] = 'Betaal met Ingenico';
+$_MODULE['<{ogone}prestashop>ogone16_a8227a4b6c2e1747ad3febb4b9f8d5d4'] = 'Betaal op een veilige manier door gebruik te maken van uw gewenste betaalmethode';
+$_MODULE['<{ogone}prestashop>ogone_05d749acfbb6a79553aef6a644db881f'] = 'PSPID';
+$_MODULE['<{ogone}prestashop>ogone_0ad87dec5bc422a24ca801c473d44213'] = 'PrestaShop zijde';
+$_MODULE['<{ogone}prestashop>ogone_0cbc6611f5540bd0809a388dc95a615b'] = 'Test';
+$_MODULE['<{ogone}prestashop>ogone_20015706a8cbd457cbb6ea3e7d5dc9b3'] = 'Configuratie bijgewerkt';
+$_MODULE['<{ogone}prestashop>ogone_20226890d13b230111fe30e1eb7a167b'] = 'productie mode';
+$_MODULE['<{ogone}prestashop>ogone_254f642527b45bc260048e30704edb39'] = 'Configuratie';
+$_MODULE['<{ogone}prestashop>ogone_2ee3d80e1919fc84a184c727e3ccfa20'] = 'test mode';
+$_MODULE['<{ogone}prestashop>ogone_38056880101f21752c2dbce4549b8423'] = 'Zie screendump voor de stap';
+$_MODULE['<{ogone}prestashop>ogone_62fd280c30b9823d99fa1e3649ef293b'] = 'Tarieven';
+$_MODULE['<{ogone}prestashop>ogone_6419c7668f1d1a415063ebf1c55fd5d5'] = 'Betaal met Ingenico';
+$_MODULE['<{ogone}prestashop>ogone_650be61892bf690026089544abbd9d26'] = 'Mode';
+$_MODULE['<{ogone}prestashop>ogone_6a26f548831e6a8c26bfbbd9f6ec61e0'] = 'Help';
+$_MODULE['<{ogone}prestashop>ogone_756d97bb256b8580d4d71ee0c547804e'] = 'Productie';
+$_MODULE['<{ogone}prestashop>ogone_7c287610a5cd0fddf4261f153996da5e'] = 'SHA-out handtekening';
+$_MODULE['<{ogone}prestashop>ogone_8da6d1ecd712792004829aa57eb4a9f7'] = 'Test kaarten';
+$_MODULE['<{ogone}prestashop>ogone_a8227a4b6c2e1747ad3febb4b9f8d5d4'] = 'Betaal op een veilige manier door gebruik te maken van uw gewenste betaalmethode';
+$_MODULE['<{ogone}prestashop>ogone_ac3b5413fdb77e3726a94891c9844b44'] = 'SHA-in handtekening';
+$_MODULE['<{ogone}prestashop>ogone_b17f3f4dcf653a5776792498a9b44d6a'] = 'Instellingen updaten';
+$_MODULE['<{ogone}prestashop>ogone_b5a7adde1af5c87d7fd797b6245c2a39'] = 'Beschrijving';
+$_MODULE['<{ogone}prestashop>ogone_f4f70727dc34561dfde1a3c529b6205c'] = 'Instellingen';
+$_MODULE['<{ogone}prestashop>validation_273e5454628021d87e34051074ac62d1'] = 'Onbrekende parameter:';
+$_MODULE['<{ogone}prestashop>validation_671c1f78cd9a17103c43a10d19157678'] = 'Eenvoudige sleutel:';
+$_MODULE['<{ogone}prestashop>validation_6b4fcb57371df22836b78f67bc444213'] = 'Onbekende status:';
+$_MODULE['<{ogone}prestashop>validation_7eaab6a852dfe4707acde8847dba7ce9'] = 'Opgegeven SHA-1:';
+$_MODULE['<{ogone}prestashop>validation_8fbed6331a34a844224bfee15145e00f'] = 'Berekende SHA-1:';
+$_MODULE['<{ogone}prestashop>validation_a04830387e55082ed6096ab698ac8238'] = 'Ongeldige SHA-1 handtekening';
+$_MODULE['<{ogone}prestashop>validation_cbb285f0e88adea7d492a5b14b9e6d1d'] = 'Fout (autorisatie geweigerd)';
+$_MODULE['<{ogone}prestashop>validation_e9f77209121063c8aedd7698f20f4878'] = 'Ontvangen parameters:';
+$_MODULE['<{ogone}prestashop>validation_ee5698e64b5157ad1cbe6aa614288c33'] = 'Betaling geautoriseerd / Ok';
+$_MODULE['<{ogone}prestashop>waiting_1fe3bb016fa11dd93fb1929f118fd492'] = 'Even geduld, uw order is in behandeling...';

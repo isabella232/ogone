@@ -1,13 +1,13 @@
 <?php
-/*
-* 2007-2011 PrestaShop
+/**
+* 2007-2015 PrestaShop
 *
 * NOTICE OF LICENSE
 *
-* This source file is subject to the Academic Free License (AFL 3.0)
+* This source file is subject to the Open Software License (OSL 3.0)
 * that is bundled with this package in the file LICENSE.txt.
 * It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
+* http://opensource.org/licenses/osl-3.0.php
 * If you did not receive a copy of the license and are unable to
 * obtain it through the world-wide-web, please send an email
 * to license@prestashop.com so we can send you a copy immediately.
@@ -18,9 +18,9 @@
 * versions in the future. If you wish to customize PrestaShop for your
 * needs please refer to http://www.prestashop.com for more information.
 *
-*  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2011 PrestaShop SA
-*  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+*  @author    PrestaShop SA <contact@prestashop.com>
+*  @copyright 2007-2015 PrestaShop SA
+*  @license   http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
@@ -45,7 +45,10 @@ class Ogone extends PaymentModule
 	const OPERATION_SALE = 'SAL';
 	const OPERATION_AUTHORISE = 'RES';
 
-	private $_ignoreKeyList = array('secure_key');
+	private $ignore_key_list = array('secure_key', 'ORIG');
+
+	private $needed_key_list = array('orderID', 'amount', 'currency', 'PM', 'ACCEPTANCE', 'STATUS',
+		'CARDNO', 'PAYID', 'NCERROR', 'BRAND', 'SHASIGN');
 
 	/*
 	 * flag for eu_legal
@@ -130,15 +133,17 @@ class Ogone extends PaymentModule
 	{
 		$this->name = 'ogone';
 		$this->tab = 'payments_gateways';
-		$this->version = '2.12';
+		$this->version = '2.13';
 		$this->author = 'Ingenico Payment Services';
 		$this->module_key = '787557338b78e1705f2a4cb72b1dbb84';
 
 		parent::__construct();
 
 		$this->displayName = 'Ingenico Payment Services (Ogone)';
-		$this->description = $this->l('With over 80 different payment methods and 200+ acquirer connections, Ogone helps you manage, collect and secure your online or mobile payments, help prevent fraud and drive your business!');
+		$desc = 'With over 80 different payment methods and 200+ acquirer connections, Ingenico helps you manage, ';
+		$desc .= 'collect and secure your online or mobile payments, help prevent fraud and drive your business!';
 
+		$this->description = $this->l($desc);
 		/* Backward compatibility */
 		require_once _PS_MODULE_DIR_.'ogone/backward_compatibility/backward.php';
 	}
@@ -146,16 +151,17 @@ class Ogone extends PaymentModule
 	public function install()
 	{
 		/* For 1.4.3 and less compatibility */
-		$updateConfig = array('PS_OS_CHEQUE', 'PS_OS_PAYMENT', 'PS_OS_PREPARATION', 'PS_OS_SHIPPING', 'PS_OS_CANCELED', 'PS_OS_REFUND', 'PS_OS_ERROR', 'PS_OS_OUTOFSTOCK', 'PS_OS_BANKWIRE', 'PS_OS_PAYPAL', 'PS_OS_WS_PAYMENT');
+		$update_config = array('PS_OS_CHEQUE', 'PS_OS_PAYMENT', 'PS_OS_PREPARATION', 'PS_OS_SHIPPING', 'PS_OS_CANCELED', 'PS_OS_REFUND', 'PS_OS_ERROR',
+								'PS_OS_OUTOFSTOCK', 'PS_OS_BANKWIRE', 'PS_OS_PAYPAL', 'PS_OS_WS_PAYMENT');
 		if (!Configuration::get('PS_OS_PAYMENT'))
-			foreach ($updateConfig as $u)
+			foreach ($update_config as $u)
 			if (!Configuration::get($u) && defined('_'.$u.'_'))
 			Configuration::updateValue($u, constant('_'.$u.'_'));
 
 		return (parent::install() &&
 				$this->addStatuses() &&
 				Configuration::updateValue('OGONE_OPERATION', self::OPERATION_SALE) &&
-		    	Configuration::get('OGONE_OPERATION') === self::OPERATION_SALE &&
+				Configuration::get('OGONE_OPERATION') === self::OPERATION_SALE &&
 				$this->registerHook('payment') &&
 				$this->registerHook('orderConfirmation') &&
 				$this->registerHook('backOfficeHeader') &&
@@ -166,12 +172,18 @@ class Ogone extends PaymentModule
 	 * Adds itermediary statuses. Needs to be public, because it's called by upgrade_module_2_11
 	 * @return boolean
 	 */
-	public function addStatuses(){
+	public function addStatuses()
+	{
 		$result = true;
-		foreach ($this->new_statuses as $code => $status)
-			if (!$this->addStatus($code, $status['names'], isset($status['properties']) ? $status['properties'] : array()))
-				$result = false;
 
+		$statuses = $this->getExistingStatuses();
+		foreach ($this->new_statuses as $code => $status)
+		{
+				if (isset($statuses[$status['names']['en']]))
+								continue;
+						if (!$this->addStatus($code, $status['names'], isset($status['properties']) ? $status['properties'] : array()))
+								$result = false;
+		}
 		if (version_compare(_PS_VERSION_, '1.5', 'ge') && is_callable('Cache', 'clean'))
 			Cache::clean('OrderState::getOrderStates*');
 
@@ -182,42 +194,54 @@ class Ogone extends PaymentModule
 	}
 
 	/**
+	 * Returns list of existing order statuses
+	 * @return multitype:number
+	 */
+	protected function getExistingStatuses()
+	{
+		$statuses = array();
+		$select_lang_id = (int)Language::getIdByIso('en');
+		if (!$select_lang_id)
+			$select_lang_id = (int)Configuration::get('PS_LANG_DEFAULT');
+		foreach (OrderState::getOrderStates($select_lang_id) as $status)
+			$statuses[$status['name']] = (int)$status['id_order_state'];
+		return $statuses;
+	}
+
+
+	/**
 	 * Adds new order state on install
 	 * @param string $code
 	 * @param array $names
 	 * @param array $properties
 	 * @return boolean
 	 */
-	protected function addStatus($code, array $names = array(), array $properties = array()){
-
+	protected function addStatus($code, array $names = array(), array $properties = array())
+	{
 		$order_state = new OrderState();
-
-		foreach (Language::getLanguages() as $language)
+		foreach (Language::getLanguages(false) as $language)
 		{
 			$iso_code = Tools::strtolower($language['iso_code']);
 			$order_state->name[(int)$language['id_lang']] = isset($names[$iso_code]) ?  $names[$iso_code] : $names['en'];
 		}
-
 		foreach ($properties as $property => $value)
 			$order_state->{$property} = $value;
-
 		$order_state->module_name = $this->name;
-
 		$result = $order_state->add() && Validate::isLoadedObject($order_state);
-
 		if ($result)
 		{
 			Configuration::updateValue($code, $order_state->id, false, false);
 			$source = dirname(__FILE__).DIRECTORY_SEPARATOR.'logo.gif';
 			$targets = array(
-				 _PS_IMG_DIR_.DIRECTORY_SEPARATOR.'os'.DIRECTORY_SEPARATOR.sprintf('%d.gif', $order_state->id),
-				 _PS_TMP_IMG_DIR_.DIRECTORY_SEPARATOR.sprintf('order_state_mini_%d.gif', $order_state->id),
-				version_compare(_PS_VERSION_, '1.5', 'ge') ? _PS_TMP_IMG_DIR_.DIRECTORY_SEPARATOR.sprintf('order_state_mini_%d_%d.gif', $order_state->id, Context::getContext()->shop->id) : null,
+				_PS_IMG_DIR_.DIRECTORY_SEPARATOR.'os'.DIRECTORY_SEPARATOR.sprintf('%d.gif', $order_state->id),
+				_PS_TMP_IMG_DIR_.DIRECTORY_SEPARATOR.sprintf('order_state_mini_%d.gif', $order_state->id),
+				version_compare(_PS_VERSION_, '1.5', 'ge') ?
+					_PS_TMP_IMG_DIR_.DIRECTORY_SEPARATOR.sprintf('order_state_mini_%d_%d.gif', $order_state->id, Context::getContext()->shop->id) :
+					null,
 			);
 			foreach (array_filter($targets) as $target)
 				copy($source, $target);
 		}
-
 		return $result;
 	}
 
@@ -249,163 +273,178 @@ class Ogone extends PaymentModule
 			Configuration::updateValue('OGONE_SHA_IN', Tools::getValue('OGONE_SHA_IN'));
 			Configuration::updateValue('OGONE_SHA_OUT', Tools::getValue('OGONE_SHA_OUT'));
 			Configuration::updateValue('OGONE_MODE', (int)Tools::getValue('OGONE_MODE'));
-			Configuration::updateValue('OGONE_OPERATION', in_array(Tools::getValue('OGONE_OPERATION'), $this->allowed_operations) ? Tools::getValue('OGONE_OPERATION') : self::OPERATION_SALE);
-			$dataSync = (($pspid = Configuration::get('OGONE_PSPID'))
-				? '<img src="http://api.prestashop.com/modules/ogone.png?pspid='.urlencode($pspid).'&mode='.(int)Tools::getValue('OGONE_MODE').'" style="float:right" />'
+			Configuration::updateValue('OGONE_OPERATION', in_array(Tools::getValue('OGONE_OPERATION'), $this->allowed_operations) ?
+			Tools::getValue('OGONE_OPERATION') : self::OPERATION_SALE);
+			$data_sync = (($pspid = Configuration::get('OGONE_PSPID'))
+				? '<img src="http://api.prestashop.com/modules/ogone.png?pspid='.urlencode($pspid).'&mode='.
+				(int)Tools::getValue('OGONE_MODE').'" style="float:right" />'
 				: ''
 			);
-			$this->_html .= '<div class="conf">'.$this->l('Configuration updated').$dataSync.'</div>';
+
+			$this->_html .= (version_compare(_PS_VERSION_, '1.6', 'ge') ? '<div class="conf bootstrap"><div class="conf alert alert-success">'.$this->l('Configuration updated').$data_sync.'</div></div>' : '<div class="conf">'.$this->l('Configuration updated').$data_sync.'</div>');
 		}
 
-		if ($this->context->language->iso_code == 'fr')
-			$account_creation_link = 'https://secure.ogone.com/ncol/test/new_account.asp?BRANDING=ogone&ISP=OFR&SubID=3&SOLPRO=&MODE=STD&ACountry=FR&Lang=2';
-		elseif ($this->context->language->iso_code == 'de')
-			$account_creation_link = 'https://secure.ogone.com/ncol/test/new_account.asp?BRANDING=ogone&ISP=ODE&SubID=5&SOLPRO=&MODE=STD&ACountry=DE&Lang=5';
-		else
-			$account_creation_link = 'https://secure.ogone.com/ncol/test/new_account.asp?BRANDING=ogone&ISP=OFR&SubID=3&SOLPRO=&MODE=STD&ACountry=FR&Lang=1';
+		$hide_info_tabs = (bool)Configuration::get('OGONE_PSPID');
 
-		return $this->_html.'
-		<fieldset><legend><img src="../modules/'.$this->name.'/logo.gif" /> '.$this->l('Help').'</legend>
-			<p>
-				<img src="../modules/'.$this->name.'/ingenico.png" alt="ogone logo" style="float: left; margin: 0 5px 5px 0;"/>
-				'.$this->l('Ogone Payment Services is a leading European Payment Service Provider with international reach.').'
-				'.sprintf($this->l('More than %1$s35,000 businesses worldwide%2$s trust Ogone to manage and secure their online payments, help prevent fraud and drive their business.'), '<span style="color: #127ac1; font-weight: bold">', '</span>').'
-				'.sprintf($this->l('Ogone is connected through certified links with more than %1$s200 different banks and acquirers%2$s and hence is able to provide over %1$s80 international, alternative and prominent local payment methods%2$s in Europe, Asia, Latin America and the Middle East.'), '<span style="color: #127ac1; font-weight: bold">', '</span>').'
-				<div class="clear">&nbsp;</div>
-			</p>
-			<p style="color: #127ac1; font-weight: bold; font-size: 1.2em; margin: 20px 0">'.sprintf($this->l('To activate your account, you need a %1$sMID (Merchant Identification) contract%2$s with an acquiring bank.'), '<span style="text-decoration: underline;">', '</span>').'</p>
+		$this->_html .= '<div data-acc-tgt="ogone_info" class="ogone_acc ogone_info '.($hide_info_tabs ? 'ogone_hide' : '').'" style="background-image: url('._MODULE_DIR_.$this->name;
+		$this->_html .= '/views/img/desc_ogone.png);background-repeat:no-repeat;background-position:8px center;">'.$this->l('Description').'</div>';
+		$this->_html .= $this->getTranslatedAdminTemplate('info');
+		$this->_html .= '';
 
-			<p style="margin-top: 15px">1. <span style="color: #127ac1;">'.$this->l('Create your free test account by clicking on the link below:').'</span></p>
-			<p style="float: right; padding: 5px;"><a style="color: white; background: #127ac1; padding: 10px; border-radius: 10px; font-size: 15px; font-weight: bold;" href="'.$account_creation_link.'">'.$this->l('Create your free Test Account!').'</a></p>
-			<p>
-				'.sprintf($this->l('This test account will allow you to create your %1$sPSPID (Ogone Identification)%2$s, to request administrative information, to activate the desired payment methods and to install the %1$sSHA-in and SHA-out signatures%2$s which you are sought for the configuration of your PrestaShop account below.'), '<b>', '</b>').'
-				'.$this->l('You can also perform test payments.').'
-			</p>
+		$this->_html .= '<div data-acc-tgt="ogone_prices" class="ogone_acc ogone_prices '.($hide_info_tabs ? 'ogone_hide' : '').'" style="background-image: url('._MODULE_DIR_.$this->name;
+		$this->_html .= '/views/img/gift_ogone.png);background-repeat:no-repeat;background-position:8px center;">'.$this->l('Rates').'</div>';
+		$this->_html .= $this->getTranslatedAdminTemplate('prices');
+		$this->_html .= '</fieldset>';
 
-			<p style="margin-top: 15px">2. <span style="color: #127ac1;">'.$this->l('Transfer your Ogone test account into production:').'</span></p>
-			<p>
-				'.$this->l('This second part will allow you to complete your billing information, insert the UID number your acquirer has communicated to you and obtain your Ogone contract.').'
-			</p>
-
-			<p style="margin-top: 15px">3. <span style="color: #127ac1;">'.$this->l('Activate your account on Prestashop!').'</span></p>
-			<p>
-				'.$this->l('Simply insert the following information below: your PSPID as well as the SHA-in and SHA-out signatures set on your Ogone account.').'
-			</p>
-			<p style="margin-top: 15px; color: #127ac1;">'.$this->l('For all commercial, technical or administrative question, please do not hesitate to contact us on 0203 147 4966.').'</p>
-
-			<div class="clear">&nbsp;</div>
-		</fieldset>
-		<div class="clear">&nbsp;</div>
-		<form action="'.Tools::htmlentitiesUTF8($_SERVER['REQUEST_URI']).'" method="post">
-			<fieldset><legend><img src="../img/admin/contact.gif" /> '.$this->l('Settings').'</legend>
-				<div style="float: left; width: 48%; margin: 1%;">
+		$this->_html .= '<form action="'.Tools::htmlentitiesUTF8($_SERVER['REQUEST_URI']).'" method="post">
+			<div data-acc-tgt="ogone_config"  class="ogone_acc ogone_config" style="background-image: url('._MODULE_DIR_.$this->name;
+		$this->_html .= '/views/img/conf_ogone.png);background-repeat:no-repeat;background-position:8px center;">'.$this->l('Configuration').'</div>
+				<div class="ogone ogone_acc_container">
+				<div id="ogone_config" class="ogone_acc_tgt">
+				<div class="float half">
 					<label for="pspid">'.$this->l('PSPID').'</label>
 					<div class="margin-form">
-						<input type="text" id="pspid" size="20" name="OGONE_PSPID" value="'.Tools::safeOutput(Tools::getValue('OGONE_PSPID', Configuration::get('OGONE_PSPID'))).'" />
+						<input type="text" id="pspid" size="20" name="OGONE_PSPID" value="'.Tools::safeOutput(Tools::getValue('OGONE_PSPID',
+							Configuration::get('OGONE_PSPID'))).'" />
 					</div>
 					<div class="clear">&nbsp;</div>
 					<label for="sha-in">'.$this->l('SHA-in signature').'</label>
 					<div class="margin-form">
-						<input type="text" id="sha-in" size="20" name="OGONE_SHA_IN" value="'.Tools::safeOutput(Tools::getValue('OGONE_SHA_IN', Configuration::get('OGONE_SHA_IN'))).'" />
+						<input type="text" id="sha-in" size="20" name="OGONE_SHA_IN" value="'.Tools::safeOutput(Tools::getValue('OGONE_SHA_IN',
+							Configuration::get('OGONE_SHA_IN'))).'" />
 					</div>
 					<div class="clear">&nbsp;</div>
 					<label for="sha-out">'.$this->l('SHA-out signature').'</label>
 					<div class="margin-form">
-						<input type="text" id="sha-out" size="20" name="OGONE_SHA_OUT" value="'.Tools::safeOutput(Tools::getValue('OGONE_SHA_OUT', Configuration::get('OGONE_SHA_OUT'))).'" />
+						<input type="text" id="sha-out" size="20" name="OGONE_SHA_OUT" value="'.Tools::safeOutput(Tools::getValue('OGONE_SHA_OUT',
+							Configuration::get('OGONE_SHA_OUT'))).'" />
 					</div>
 					<div class="clear">&nbsp;</div>
 					<label>'.$this->l('Mode').'</label>
 					<div class="margin-form">
-						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="test" name="OGONE_MODE" value="0" style="vertical-align:middle;display:block;float:left;margin-top:2px;margin-right:3px;"
+						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="test" name="OGONE_MODE" value="0" style="vertical-align:middle;
+						display:block;float:left;margin-top:2px;margin-right:3px;"
 							'.(!Tools::getValue('OGONE_MODE', Configuration::get('OGONE_MODE')) ? 'checked="checked"' : '').' />
 						<label for="test" style="color:#900;display:block;float:left;text-align:left;width:60px;">'.$this->l('Test').'</label>&nbsp;</span>
 						<span style="display:block;float:left;margin-top:3px;">
-						<input type="radio" id="production" name="OGONE_MODE" value="1" style="vertical-align:middle;display:block;float:left; margin-top:2px;margin-right:3px;"
+						<input type="radio" id="production" name="OGONE_MODE" value="1" style="vertical-align:middle;display:block;float:left; margin-top:2px;
+							margin-right:3px;"
 							'.(Tools::getValue('OGONE_MODE', Configuration::get('OGONE_MODE')) ? 'checked="checked"' : '').' />
 						<label for="production" style="color:#080;display:block;float:left;text-align:left;width:85px;">'.$this->l('Production').'</label></span>
 					</div>
 					<div class="clear">&nbsp;</div>
 					<label>'.$this->l('Operation').'</label>
 					<div class="margin-form">
-						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="sal" name="OGONE_OPERATION" value="'.self::OPERATION_SALE.'" style="vertical-align:middle;display:block;float:left;margin-top:2px;margin-right:3px;"
+						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="sal" name="OGONE_OPERATION" value="'.self::OPERATION_SALE.'"
+							style="vertical-align:middle;display:block;float:left;margin-top:2px;margin-right:3px;"
 							'.(Tools::getValue('OGONE_OPERATION', Configuration::get('OGONE_OPERATION')) !== self::OPERATION_AUTHORISE ? 'checked="checked"' : '').' />
 						<label for="test" style="display:block;float:left;text-align:left;width:60px;">'.$this->l('Capture').'</label>&nbsp;</span>
 						<span style="display:block;float:left;margin-top:3px;">
-						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="res" name="OGONE_OPERATION" value="'.self::OPERATION_AUTHORISE.'" style="vertical-align:middle;display:block;float:left;margin-top:2px;margin-right:3px;"
+						<span style="display:block;float:left;margin-top:3px;"><input type="radio" id="res" name="OGONE_OPERATION" value="'.self::OPERATION_AUTHORISE.'"
+							style="vertical-align:middle;display:block;float:left;margin-top:2px;margin-right:3px;"
 							'.(Tools::getValue('OGONE_OPERATION', Configuration::get('OGONE_OPERATION')) === self::OPERATION_AUTHORISE ? 'checked="checked"' : '').' />
-						<label for="test" style="display:block;float:left;text-align:left;width:60px;">'.$this->l('Authorisation only').'</label>&nbsp;</span>
+						<label for="test" style="display:block;float:left;text-align:left;width:100px;">'.$this->l('Authorisation only').'</label>'.
+						'<br />'.$this->l('Attention: this operation requires manual acceptation in Ingenico backoffice').
+						'&nbsp;</span>
 					</div>
 					<div class="clear">&nbsp;</div>
 					<input type="submit" name="submitOgone" value="'.$this->l('Update settings').'" class="button" />
 				</div>
-				<div style="float: left; width: 48%; margin: 1%;">
-					<ol>
-						<li><a class="ogone_screenshot" href="'._MODULE_DIR_.$this->name.'/screenshots/en1.png" title="'.$this->l('Step').'1">'.$this->l('Screenshot').' <u>'.$this->l('Step').' 1</u></a></li>
-						<li><a class="ogone_screenshot" href="'._MODULE_DIR_.$this->name.'/screenshots/en2.png" title="'.$this->l('Step').'2">'.$this->l('Screenshot').' <u>'.$this->l('Step').' 2</u></a></li>
-						<li><a class="ogone_screenshot" href="'._MODULE_DIR_.$this->name.'/screenshots/en3.png" title="'.$this->l('Step').'3">'.$this->l('Screenshot').' <u>'.$this->l('Step').' 3</u></a></li>
-						<li><a class="ogone_screenshot" href="'._MODULE_DIR_.$this->name.'/screenshots/en4.png" title="'.$this->l('Step').'4">'.$this->l('Screenshot').' <u>'.$this->l('Step').' 4</u></a></li>
-						<li><a class="ogone_screenshot" href="'._MODULE_DIR_.$this->name.'/screenshots/en5.png" title="'.$this->l('Step').'5">'.$this->l('Screenshot').' <u>'.$this->l('Step').' 5</u></a></li>
-					</ol>
+				<div class="float half">
 				</div>
-			</fieldset>
+
+							</div>
+							<div class="clear">&nbsp;</div>
+							</div>
+			</DIV>
 		</form>
 		<div class="clear">&nbsp;</div>
 		<script type="text/javascript">
 			$(document).ready(function() {
-				$(".ogone_screenshot").fancybox({
-					helpers : {
-						title : {
-							type : \'over\'
-						}
+				$(".ogone_acc").click(function(){
+					var tgt_id = "#"+ $(this).data("acc-tgt");
+					$(".ogone_acc_tgt").not(tgt_id).hide().removeClass("active");
+					$(tgt_id).toggle().addClass("active");
+				});
+
+				$(".ogone_acc").each(function(){
+					if ($(this).hasClass("ogone_hide")){
+					var tgt_id = "#"+ $(this).data("acc-tgt");
+					$(tgt_id).hide().removeClass("active");
 					}
 				});
+
 			});
 		</script>';
+
+		return $this->_html;
+
+	}
+
+	protected function getTranslatedAdminTemplate($template, $default_lang_iso_code = 'fr')
+	{
+		$template = Tools::strtolower($template);
+		$codes = array_filter(array(Tools::strtolower(Context::getContext()->language->iso_code), Tools::strtolower($default_lang_iso_code)));
+		foreach ($codes as $lang_iso_code)
+		{
+			if (file_exists(dirname(__FILE__).'/views/templates/admin/'.$template.'_'.$lang_iso_code.'.tpl'))
+				return $this->display(__FILE__, 'views/templates/admin/'.$template.'_'.$lang_iso_code.'.tpl');
+		}
+		return '';
 	}
 
 	public function getIgnoreKeyList()
 	{
-		return $this->_ignoreKeyList;
+		return $this->ignore_key_list;
+	}
+
+	public function getNeededKeyList()
+	{
+		return $this->needed_key_list;
+	/*	$needed_vars = $this->needed_key_list;
+		if (version_compare($this->version, '2.13', 'ge'))
+			$needed_vars[] = 'ORIG';
+		return $needed_vars;*/
 	}
 
 	/**
-	 * Assifns all vars to smarty
+	 * Assigns all vars to smarty
 	 * @param unknown_type $params
 	 */
 	protected function assignOgonePaymentVars($params)
 	{
+		$currency = new Currency((int)$params['cart']->id_currency);
+		$lang = new Language((int)$params['cart']->id_lang);
+		$customer = new Customer((int)$params['cart']->id_customer);
+		$address = new Address((int)$params['cart']->id_address_invoice);
+		$country = new Country((int)$address->id_country, (int)$params['cart']->id_lang);
 
-		$currency = new Currency((int)($params['cart']->id_currency));
-		$lang = new Language((int)($params['cart']->id_lang));
-		$customer = new Customer((int)($params['cart']->id_customer));
-		$address = new Address((int)($params['cart']->id_address_invoice));
-		$country = new Country((int)($address->id_country), (int)($params['cart']->id_lang));
+		$ogone_params = array();
+		$ogone_params['PSPID'] = Configuration::get('OGONE_PSPID');
+		$ogone_params['OPERATION'] = (Configuration::get('OGONE_OPERATION') === self::OPERATION_AUTHORISE ?
+			self::OPERATION_AUTHORISE :
+			self::OPERATION_SALE);
 
-		$ogoneParams = array();
-		$ogoneParams['PSPID'] = Configuration::get('OGONE_PSPID');
-		$ogoneParams['OPERATION'] = (Configuration::get('OGONE_OPERATION') === self::OPERATION_AUTHORISE ? self::OPERATION_AUTHORISE : self::OPERATION_SALE);
-		$ogoneParams['ORDERID'] = pSQL($params['cart']->id);
-
-		$ogoneParams['AMOUNT'] = number_format((float)(number_format($params['cart']->getOrderTotal(true, Cart::BOTH), 2, '.', '')), 2, '.', '') * 100;
-		$ogoneParams['CURRENCY'] = $currency->iso_code;
-		$ogoneParams['LANGUAGE'] = $lang->iso_code.'_'.Tools::strtoupper($lang->iso_code);
-		$ogoneParams['CN'] = $customer->lastname;
-		$ogoneParams['EMAIL'] = $customer->email;
-		$ogoneParams['OWNERZIP'] = $address->postcode;
-		$ogoneParams['OWNERADDRESS'] = ($address->address1);
-		$ogoneParams['OWNERCTY'] = $country->iso_code;
-		$ogoneParams['OWNERTOWN'] = $address->city;
-		$ogoneParams['PARAMPLUS'] = 'secure_key='.$params['cart']->secure_key;
+		$ogone_params['ORDERID'] = pSQL($params['cart']->id);
+		$ogone_params['AMOUNT'] = number_format((float)number_format($params['cart']->getOrderTotal(true, Cart::BOTH), 2, '.', ''), 2, '.', '') * 100;
+		$ogone_params['CURRENCY'] = $currency->iso_code;
+		$ogone_params['LANGUAGE'] = $lang->iso_code.'_'.Tools::strtoupper($lang->iso_code);
+		$ogone_params['CN'] = $customer->lastname;
+		$ogone_params['EMAIL'] = $customer->email;
+		$ogone_params['OWNERZIP'] = $address->postcode;
+		$ogone_params['OWNERADDRESS'] = ($address->address1);
+		$ogone_params['OWNERCTY'] = $country->iso_code;
+		$ogone_params['OWNERTOWN'] = $address->city;
+		$ogone_params['PARAMPLUS'] = 'secure_key='.$params['cart']->secure_key;
 		if (!empty($address->phone))
-			$ogoneParams['OWNERTELNO'] = $address->phone;
+			$ogone_params['OWNERTELNO'] = $address->phone;
 
-		ksort($ogoneParams);
-		$shasign = '';
-		foreach ($ogoneParams as $key => $value)
-			$shasign .= Tools::strtoupper($key).'='.$value.Configuration::get('OGONE_SHA_IN');
-		$ogoneParams['SHASign'] = Tools::strtoupper(sha1($shasign));
+		ksort($ogone_params);
+		$ogone_params['ORIG'] = Tools::substr('ORPR'.str_replace('.', '', $this->version), 0, 10);
 
-		$this->context->smarty->assign('ogone_params', $ogoneParams);
+		$ogone_params['SHASign'] = $this->calculateShaSign($ogone_params, Configuration::get('OGONE_SHA_IN'));
+
+		$this->context->smarty->assign('ogone_params', $ogone_params);
 		$this->context->smarty->assign('OGONE_MODE', Configuration::get('OGONE_MODE'));
 
 	}
@@ -420,33 +459,32 @@ class Ogone extends PaymentModule
 		$this->assignOgonePaymentVars($params);
 		return array(
 			'cta_text' => $this->l('Ogone'),
-			'logo' => $this->_path.'ogone.gif',
-			'form' => $this->context->smarty->fetch(dirname(__FILE__).'/ogone_eu.tpl')
+			'logo' => $this->_path.'views/img/ogone.gif',
+			'form' => $this->context->smarty->fetch(dirname(__FILE__).'/views/templates/front/ogone_eu.tpl')
 		);
 	}
 
 	public function hookPayment($params)
 	{
-
 		$this->assignOgonePaymentVars($params);
-		return $this->display(__FILE__, 'ogone.tpl');
-    }
+		$template = (version_compare(_PS_VERSION_, '1.6', 'ge') ? 'ogone16.tpl' : 'ogone.tpl');
+		return $this->display(__FILE__, 'views/templates/front/'.$template);
+	}
 
 	public function hookOrderConfirmation($params)
 	{
 		if ($params['objOrder']->module != $this->name)
 			return;
-
-		if ($params['objOrder']->valid)
+		if ($params['objOrder']->valid || (Configuration::get('OGONE_OPERATION') == self::OPERATION_AUTHORISE && (int)$params['objOrder']->current_state === (int)Configuration::get('OGONE_PAYMENT_AUTHORIZED') ))
 			$this->context->smarty->assign(array('status' => 'ok', 'id_order' => $params['objOrder']->id));
 		else
 			$this->context->smarty->assign('status', 'failed');
 
-		$this->context->smarty->assign('operation', Configuration::get('OGONE_OPERATION', self::OPERATION_SALE));
+		$this->context->smarty->assign('operation', Configuration::get('OGONE_OPERATION') ? Configuration::get('OGONE_OPERATION') : self::OPERATION_SALE);
 
 		$link = method_exists('Link', 'getPageLink') ? $this->context->link->getPageLink('contact', true) : Tools::getHttpHost(true).'contact';
 		$this->context->smarty->assign('ogone_link', $link);
-		return $this->display(__FILE__, 'hookorderconfirmation.tpl');
+		return $this->display(__FILE__, 'views/templates/hook/hookorderconfirmation.tpl');
 	}
 
 	public function validate($id_cart, $id_order_state, $amount, $message = '', $secure_key)
@@ -459,7 +497,8 @@ class Ogone extends PaymentModule
 	 * @param int $code
 	 * @return string  Translated Ogone payment status description
 	 */
-	public function getCodeDescription($code){
+	public function getCodeDescription($code)
+	{
 		return isset($this->return_codes[(int)$code]) ? $this->l($this->return_codes[(int)$code][0]) : sprintf('%s %s', $this->l('Unknown code'), $code);
 	}
 
@@ -478,7 +517,8 @@ class Ogone extends PaymentModule
 	 * @param string $ogone_status name of Ogone return state
 	 * @return int
 	 */
-	public function getPaymentStatusId($ogone_status){
+	public function getPaymentStatusId($ogone_status)
+	{
 		$status_id = (int)Configuration::get((string)$ogone_status);
 		return ($status_id ? $status_id : (int)Configuration::get('PS_OS_ERROR'));
 	}
@@ -504,4 +544,12 @@ class Ogone extends PaymentModule
 		return $message_obj->add();
 	}
 
+	public function calculateShaSign($ogone_params, $sha_key)
+	{
+		ksort($ogone_params);
+		$shasign = '';
+		foreach ($ogone_params as $key => $value)
+			$shasign .= Tools::strtoupper($key).'='.$value.$sha_key;
+		return Tools::strtoupper(sha1($shasign));
+	}
 }

@@ -33,9 +33,9 @@ if (!defined('_PS_VERSION_'))
  */
 function upgrade_module_2_11($module)
 {
-	Configuration::updateValue('OGONE_OPERATION', 'SAL');
-	$module->addStatuses();
+	$result = Configuration::updateValue('OGONE_OPERATION', 'SAL');
+	$result = $result && $module->addStatuses();
 	if (is_callable(array('Hook', 'getIdByName')) && Hook::getIdByName('displayPaymentEU'))
-		$module->registerHook('displayPaymentEU');
-	return $module;
+		$result = $result && $module->registerHook('displayPaymentEU');
+	return $result;
 }
